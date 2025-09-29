@@ -17,5 +17,7 @@ python runme.py model_name
 ex) python runme.py epilepsy
 
 
+## about spine modeling
 
+see the [figure](figure_for_spines.png) 
 
