@@ -6,9 +6,10 @@ import numpy
 
 from matplotlib import pyplot as plt
 
-#cell that contains only 1 spine which is randomly located on a randomly selected dendrite
+#cell that contains only 1 spine which is randomly located on the dendrite
+
 class cell() :
-    def __init__(self, name="cell", gid=0):
+    def __init__(self, name="cell", gid=0, dend_nseglevel=1):
         #random.seed(1) #use the same seed to get same number in every run
         random.seed(time.time())
         
@@ -27,13 +28,14 @@ class cell() :
         cellspec["apical_trunk_len"] = 30
         cellspec["basal_prxm_len"] = 30
         cellspec["hypo_dend_len"] = 250
-        cellspec["explicit_dend_len"] = 101.5
+        cellspec["active_dend_len"] = 101.5
 
         cellspec["model"] = "control" #control or epilepsy
 
         self.cellspec = cellspec
         self.name = name
         self.gid = gid
+        self.dend_nseglevel = dend_nseglevel #bigger value will make more segments
 
     def create_cell(self) :
         self.__cellspec_validtest()
@@ -68,11 +70,10 @@ class cell() :
         assert self.cellspec["apical_trunk_len"] > 0, "apical_trunk_len should be bigger than 0\n"
         assert self.cellspec["basal_prxm_len"] > 0, "basal_prxm_len should be bigger than 0\n"
         assert self.cellspec["hypo_dend_len"] > 0, "hypo_dend_len should be bigger than 0\n"
-        assert self.cellspec["explicit_dend_len"] > 0, "explicit_dend_len should be bigger than 0\n"
+        assert self.cellspec["active_dend_len"] > 0, "active_dend_len should be bigger than 0\n"
 
         assert self.cellspec["model"] in ["control", "epilepsy"], "model should be control or epilepsy\n"
 
-    #where these values came from?
     def set_cell_properties(self, cm=1.0, ra=203.23, rm=38907, na_bar=2000, k_bar=600, vleak=-70, sf=2.0) :
         try :
             self.soma
@@ -88,7 +89,7 @@ class cell() :
             part.g_pas = (1/rm)
             part.e_pas = vleak
 
-        #apply spine factor to implicit spiny dendrites 
+        #apply spine factor to hypothetic spiny dendrites 
         for dend in self.sf_dends :
             dend.g_pas = (1/rm) * sf
             dend.cm = cm * sf
@@ -123,12 +124,12 @@ class cell() :
 
         if select_dend_type == "hypo" :
             spinylen = self.cellspec["hypo_dend_len"]
-            nseg = 250 
+            nseg = 332 #250 #temporarily for plot  
             spiny_start = self.sf_start[select_dend_idx[0]]
             dends = self.sf_dends[select_dend_idx[0]]
 
         else : #distal spiny
-            spinylen = self.cellspec["explicit_dend_len"]
+            spinylen = self.cellspec["active_dend_len"]
             nseg = 135
             spiny_start = self.spiny_start[select_dend_idx[0]]
             dends = self.spiny_dends[select_dend_idx[0]]
@@ -147,6 +148,7 @@ class cell() :
         e_spine = 0.001
 
         nindd = self.cellspec["nspines_perdend"]
+        # print(f"\t\t{nindd} spines for each {dend_type} dendrite, head diam: {headdiam}, neck diam:{neckdiam}")
 
         heads = []
         necks = []
@@ -235,6 +237,8 @@ class cell() :
         leng = self.cellspec["soma_len"]
         diam = self.cellspec["soma_diam"]
 
+        # print(f"\tsoma {leng}um x {diam}um")
+
         #number of point to draw soma
         npoint = 100
         hlen_soma = leng / 2.0
@@ -270,14 +274,30 @@ class cell() :
         napical = self.cellspec["ndend"] - self.cellspec["nbasal"]
         prxmlen = self.cellspec["apical_trunk_len"]
         hypospinylen = self.cellspec["hypo_dend_len"]
-        spinylen = self.cellspec["explicit_dend_len"]
+        spinylen = self.cellspec["active_dend_len"]
 
-        nseg = 21   
-        seglen = (1 / nseg) * spinylen
+        if self.dend_nseglevel < 2 : #1 and below - this is default level
+            explitcit_nseg = 21   #this is default value 
+            implicit_nseg = 21
+        elif self.dend_nseglevel == 2 :
+            explitcit_nseg = 135
+            implicit_nseg = 250
+        elif self.dend_nseglevel == 3 :
+            explitcit_nseg = 135
+            implicit_nseg = 332
+        else : 
+            explitcit_nseg = 21
+            implicit_nseg = 21
+
+        seglen = (1 / explitcit_nseg) * spinylen
 
         angle_intv = 7
         dend_diam = 1
-               
+        
+
+        #make apical dendrites
+        # print(f"\t{napical} apical dendrites, {prxmlen}um of trunk, {hypospinylen}um of SF dendrites, {spinylen}um of spiny dendrites")
+        
         #apical trunk (4 to 1.8 um of diameter)
         trunk = h.Section(name = "apical_trunk_dendrite")
         trunk.nseg = 21
@@ -308,13 +328,13 @@ class cell() :
             angles = angles + angle_intv//2
 
         hypo_spiny = []
-        explicit_spiny = []
+        active_spiny = []
         coord_spiny = []
         coord_hypo = []
         for idend in range(0,napical) :
-            #implicit spiny dendrites (middle of trunk-distal spiny)
+            #hypothetic spiny dendrites (middle of trunk-distal spiny)
             hypo_spiny.append(h.Section(name="apicalSF_dendrite_"+str(idend)))
-            hypo_spiny[idend].nseg = 250
+            hypo_spiny[idend].nseg = implicit_nseg
             hypo_spiny[idend].connect(self.apical_trunk(1), 0)
 
             ncoord = self.__get_coord_with_angle_and_length(dend_start, angle, hypospinylen)
@@ -324,23 +344,23 @@ class cell() :
 
             coord_hypo.append(dend_start)
 
-            #explicit spiny (most distal, inputs will be comming into)
+            #active spiny (most distal, inputs will be comming into)
             coord_spiny.append(ncoord)
             spiny_start = ncoord
-            explicit_spiny.append(h.Section(name="apical_spiny_dendrite_"+str(idend)))
-            explicit_spiny[idend].nseg = nseg
-            explicit_spiny[idend].connect(hypo_spiny[idend](1), 0)
+            active_spiny.append(h.Section(name="apical_spiny_dendrite_"+str(idend)))
+            active_spiny[idend].nseg = explitcit_nseg
+            active_spiny[idend].connect(hypo_spiny[idend](1), 0)
             
-            h.pt3dclear(sec = explicit_spiny[idend])
-            h.pt3dadd(spiny_start[0], spiny_start[1], spiny_start[2], dend_diam, sec=explicit_spiny[idend])
+            h.pt3dclear(sec = active_spiny[idend])
+            h.pt3dadd(spiny_start[0], spiny_start[1], spiny_start[2], dend_diam, sec=active_spiny[idend])
             ncoord = self.__get_coord_with_angle_and_length(spiny_start, angle, spinylen-seglen)
-            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], dend_diam, sec=explicit_spiny[idend])
+            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], dend_diam, sec=active_spiny[idend])
             ncoord = self.__get_coord_with_angle_and_length(spiny_start, angle, spinylen)
-            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], 0.00001, sec=explicit_spiny[idend])     #sealed end
+            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], 0.00001, sec=active_spiny[idend])     #sealed end
         
         self.sf_dends = hypo_spiny
         self.sf_start = coord_hypo
-        self.spiny_dends = explicit_spiny
+        self.spiny_dends = active_spiny
         self.spiny_start = coord_spiny 
 
 
@@ -348,14 +368,27 @@ class cell() :
         nbasal = self.cellspec["nbasal"]
         prxmlen = self.cellspec["basal_prxm_len"]
         hypo_spinylen = self.cellspec["hypo_dend_len"]
-        spinylen = self.cellspec["explicit_dend_len"]
+        spinylen = self.cellspec["active_dend_len"]
 
-        nseg = 21  
-        seglen = (1 / nseg) * spinylen
+        if self.dend_nseglevel <2 : #1 and below - this is default level
+            explitcit_nseg = 21   #this is default value 
+            implicit_nseg = 21
+        elif self.dend_nseglevel == 2 :
+            explitcit_nseg = 135
+            implicit_nseg = 250
+        elif self.dend_nseglevel == 3 :
+            explitcit_nseg = 135
+            implicit_nseg = 332
+        else : 
+            explitcit_nseg = 21
+            implicit_nseg = 21
+        seglen = (1 / explitcit_nseg) * spinylen
 
-        angle_intv = 7 
+        angle_intv = 7 #15
         dend_diam = 1
 
+        # print(f"\t{nbasal} basal dendrites, {prxmlen}um of proximal, {hypo_spinylen}um of SF dendrites, {spinylen}um of spiny dendrites")
+        
         dend_start = [-int(self.cellspec["soma_len"]/2), -int(self.cellspec["soma_diam"]), 1]
         angle = 270
 
@@ -369,13 +402,13 @@ class cell() :
 
         proximal = []
         hypo_spiny = []
-        explicit_spiny = []
+        active_spiny = []
         coord_spiny = []
         coord_hypo = []
         for idend in range(0,nbasal) :
             #proximal dendrites (2 to 1um of diameter) 
             proximal.append(h.Section(name="basal_proximal_dendrite_"+str(idend))) 
-            proximal[idend].nseg = 135
+            proximal[idend].nseg = 21
             proximal[idend].connect(self.soma(0.7), 0)
 
             h.pt3dclear(sec = proximal[idend])
@@ -386,9 +419,9 @@ class cell() :
             prxm_end = ncoord
             coord_hypo.append(prxm_end)
 
-            #implicit spiny dendrites (middle of proximal-distal spiny)
+            #hypothetic spiny dendrites (middle of proximal-distal spiny)
             hypo_spiny.append(h.Section(name="basalSF_dendrite_"+str(idend)))
-            hypo_spiny[idend].nseg = 250
+            hypo_spiny[idend].nseg = implicit_nseg
             hypo_spiny[idend].connect(proximal[idend](1), 0)
 
             ncoord = self.__get_coord_with_angle_and_length(prxm_end, angle, hypo_spinylen)
@@ -396,24 +429,24 @@ class cell() :
             h.pt3dadd(prxm_end[0], prxm_end[1], prxm_end[2], dend_diam, sec=hypo_spiny[idend])
             h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], dend_diam, sec=hypo_spiny[idend])
 
-            #explicit spiny (most distal, inputs will be comming into)
+            #active spiny (most distal, inputs will be comming into)
             coord_spiny.append(ncoord)
             spiny_start = ncoord
-            explicit_spiny.append(h.Section(name="basal_spiny_dendrite_"+str(idend)))
-            explicit_spiny[idend].nseg = nseg
-            explicit_spiny[idend].connect(hypo_spiny[idend](1), 0)
+            active_spiny.append(h.Section(name="basal_spiny_dendrite_"+str(idend)))
+            active_spiny[idend].nseg = explitcit_nseg
+            active_spiny[idend].connect(hypo_spiny[idend](1), 0)
             
-            h.pt3dclear(sec = explicit_spiny[idend])
-            h.pt3dadd(spiny_start[0], spiny_start[1], spiny_start[2], dend_diam, sec=explicit_spiny[idend])
+            h.pt3dclear(sec = active_spiny[idend])
+            h.pt3dadd(spiny_start[0], spiny_start[1], spiny_start[2], dend_diam, sec=active_spiny[idend])
             ncoord = self.__get_coord_with_angle_and_length(spiny_start, angle, spinylen-seglen)
-            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], dend_diam, sec=explicit_spiny[idend])
+            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], dend_diam, sec=active_spiny[idend])
             ncoord = self.__get_coord_with_angle_and_length(spiny_start, angle, spinylen)
-            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], 0.00001, sec=explicit_spiny[idend])     #sealed end
+            h.pt3dadd(ncoord[0], ncoord[1], ncoord[2], 0.00001, sec=active_spiny[idend])     #sealed end
        
         self.basal_proximal_dends = proximal
         self.sf_dends.extend(hypo_spiny)
         self.sf_start.extend(coord_hypo)
-        self.spiny_dends.extend(explicit_spiny)
+        self.spiny_dends.extend(active_spiny)
         self.spiny_start.extend(coord_spiny)
 
     def draw(self) :
@@ -426,6 +459,10 @@ class cell() :
         s = h.Shape()
         s.show(False)
         time.sleep(30)
+
+        # ps = h.PlotShape(False)  # False tells h.PlotShape not to use NEURON's gui
+        # ps.plot(plt)
+        # plt.show()
     
     def draw_3d(self):        
         fig = plt.figure(figsize=(8, 6))
@@ -452,7 +489,10 @@ class cell() :
                     linewidth=ds[i] * 2
                 )
 
-
+        # Clean background: no ticks, grid, labels
+        # ax.set_xticks([])
+        # ax.set_yticks([])
+        # ax.set_zticks([])
         ax.set_axis_off()  # turn off everything including background panes
 
         ax.set_facecolor('white')
@@ -460,4 +500,5 @@ class cell() :
         ax.view_init(elev=-90, azim=90)
 
         plt.tight_layout()
+        # plt.savefig("cell_morphology.png", dpi=600, bbox_inches='tight', transparent=False)
         plt.show()

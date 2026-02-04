@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../")
+
 import time
 import random
 import numpy as np
@@ -9,7 +12,7 @@ from neuron.units import ms, mV
 from matplotlib import pyplot as plt
 from openpyxl import Workbook, load_workbook
 
-import morphology as morphology
+import singleCell.morphology as morphology
 
 start_time = time.perf_counter()
 

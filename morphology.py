@@ -73,11 +73,14 @@ class cell() :
             part.insert("pas")
             part.g_pas = (1/rm)
             part.e_pas = vleak
+            #part.insert("hpkj")     #Ih
+            #part.ghbar_hpkj = 0.00008 #L5
 
         #apply spine factor to hypothetic spiny dendrites 
         for dend in self.sf_dends :
             dend.g_pas = (1/rm) * sf
             dend.cm = cm * sf
+            #dend.ghbar_hpkj = 0.00008 * sf 
 
         #insert soma specific channel (HH like Na+, K+ channel)
         self.soma.insert("na")

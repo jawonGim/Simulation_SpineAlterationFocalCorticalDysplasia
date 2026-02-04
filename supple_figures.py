@@ -1,5 +1,8 @@
 from matplotlib import pyplot as plt
 
+from openpyxl import Workbook, load_workbook
+import os
+
 def EPSP_multipoints(all=True, model="ctl", alter="head", N=100, show=True):
     from neuron import h
     from neuron.units import mV, ms
@@ -428,4 +431,26 @@ def EPSP_multipoints_allfactors(all=True, model="ctl", N=100, show=True):
         plt.show()
 
 
+## HERE to call the functions 
+
+
 EPSP_multipoints_allfactors(all=True, model="fcd", show=False)
+EPSP_multipoints_allfactors(all=False, model="fcd", show=False)
+
+# #about density changes only
+# EPSP_multipoints_density(model="ctl", show=False)   
+# EPSP_multipoints_density(model="fcd", show=False)
+# EPSP_multipoints_density(all=False, model="ctl", show=False)    #for somatic EPSP only
+# EPSP_multipoints_density(all=False, model="fcd", show=False)    #for somatic EPSP only
+
+# #about spine head diameter changes only
+# EPSP_multipoints(model="ctl", alter="head", show=False)
+# EPSP_multipoints(model="fcd", alter="head", show=False)
+# EPSP_multipoints(all=False, model="ctl", alter="head", show=False)  #for somatic EPSP only
+# EPSP_multipoints(all=False, model="fcd", alter="head", show=False)  #for somatic EPSP only
+
+# #about spine neck diameter changes only
+# EPSP_multipoints(model="ctl", alter="neck", show=False)
+# EPSP_multipoints(model="fcd", alter="neck", show=False)
+# EPSP_multipoints(all=False, model="ctl", alter="neck", show=False)  #for somatic EPSP only
+# EPSP_multipoints(all=False, model="fcd", alter="neck", show=False)  #for somatic EPSP only
